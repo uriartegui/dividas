@@ -36,9 +36,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen bg-gray-950 flex">
       <aside className="w-56 bg-gray-900 border-r border-gray-800 flex flex-col">
         <div className="p-5 border-b border-gray-800">
-          <h1 className="text-white font-bold text-lg">Cobranças</h1>
-          <p className="text-gray-500 text-xs mt-0.5">{user.tenantName}</p>
-        </div>
+           <h1 className="text-white font-bold text-lg">Cobranças</h1>
+    </div>
         <nav className="flex-1 p-4 space-y-1">
           {navItems.map(({ href, label }) => {
             const active = pathname === href

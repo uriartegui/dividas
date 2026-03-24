@@ -1,12 +1,23 @@
 'use client'
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth'
+
+const navItems = [
+  { href: '/dashboard', label: '📊 Dashboard' },
+  { href: '/dashboard/debtors', label: '👤 Devedores' },
+  { href: '/dashboard/debts', label: '💰 Dívidas' },
+  { href: '/dashboard/collections', label: '📞 Cobranças' },
+  { href: '/dashboard/agreements', label: '🤝 Acordos' },
+  { href: '/dashboard/ai-chat', label: '🤖 Chat IA' },
+  { href: '/dashboard/whatsapp', label: '💬 WhatsApp' },
+]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, init, logout } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => { init() }, [])
   useEffect(() => {
@@ -26,25 +37,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <aside className="w-56 bg-gray-900 border-r border-gray-800 flex flex-col">
         <div className="p-5 border-b border-gray-800">
           <h1 className="text-white font-bold text-lg">Cobranças</h1>
+          <p className="text-gray-500 text-xs mt-0.5">{user.tenantName}</p>
         </div>
         <nav className="flex-1 p-4 space-y-1">
-          <Link href="/dashboard" className="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors text-sm">
-            Dashboard
-          </Link>
-          <Link href="/dashboard/debtors" className="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors text-sm">
-            Devedores
-          </Link>
-          <Link href="/dashboard/debts" className="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors text-sm">
-            Dívidas
-          </Link>
-          <Link href="/dashboard/collections" className="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors text-sm">
-            Cobranças
-          </Link>
-          <Link href="/dashboard/whatsapp" className="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors text-sm">
-            WhatsApp
-          </Link>
+          {navItems.map(({ href, label }) => {
+            const active = pathname === href
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                  active
+                    ? 'bg-blue-600 text-white font-semibold'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                }`}
+              >
+                {label}
+              </Link>
+            )
+          })}
         </nav>
         <div className="p-4 border-t border-gray-800">
+          <p className="text-gray-500 text-xs px-3 mb-2">{user.name}</p>
           <button
             onClick={logout}
             className="w-full text-sm text-gray-400 hover:text-white px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors text-left"

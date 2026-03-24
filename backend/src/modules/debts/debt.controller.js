@@ -2,12 +2,22 @@ const supabase = require('../../config/db')
 
 exports.list = async (req, res, next) => {
   try {
-    let query = supabase.from('debts').select('*, debtors(name, phone)')
-      .eq('tenant_id', req.tenantId).order('due_date')
-    if (req.query.status) query = query.eq('status', req.query.status)
-    const { data, error } = await query
+    const { status, search, page = 1, limit = 20 } = req.query
+    const from = (page - 1) * limit
+    const to = from + Number(limit) - 1
+
+    let query = supabase.from('debts')
+      .select('*, debtors(name, phone)', { count: 'exact' })
+      .eq('tenant_id', req.tenantId)
+      .order('due_date')
+      .range(from, to)
+
+    if (status) query = query.eq('status', status)
+    if (search) query = query.ilike('description', `%${search}%`)
+
+    const { data, error, count } = await query
     if (error) throw error
-    res.json(data)
+    res.json({ data, total: count, page: Number(page), limit: Number(limit) })
   } catch (err) { next(err) }
 }
 

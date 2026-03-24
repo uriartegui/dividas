@@ -10,6 +10,8 @@ const collectionRoutes = require('./modules/collections/collection.routes')
 const whatsappRoutes = require('./modules/whatsapp/whatsapp.routes')
 const dashboardRoutes = require('./modules/dashboard/dashboard.routes')
 const aiRoutes = require('./modules/ai/ai.routes')
+const agreementRoutes = require('./modules/agreements/agreements.routes')
+const { initScheduler } = require('./modules/scheduler/scheduler')
 
 const app = express()
 
@@ -41,6 +43,12 @@ app.use('/api/collections', collectionRoutes)
 app.use('/api/whatsapp', whatsappRoutes)
 app.use('/api/dashboard', dashboardRoutes)
 app.use('/api/ai', aiRoutes)
+app.use('/api/agreements', agreementRoutes)
+
+// Inicia agendador de cobrança automática
+if (process.env.NODE_ENV !== 'test') {
+  initScheduler()
+}
 
 app.use((err, req, res, next) => {
   console.error(err)

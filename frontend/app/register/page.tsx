@@ -21,9 +21,14 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
 
   const handleSlug = (value: string) => {
-    const slug = value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-    setForm({ ...form, tenantSlug: slug, tenantName: value })
-  }
+  const slug = value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove acentos
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+  setForm({ ...form, tenantSlug: slug, tenantName: value })
+}
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

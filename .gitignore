@@ -1,0 +1,39 @@
+# Dependências
+node_modules/
+.pnp
+.pnp.js
+
+# Ambiente — NUNCA commitar
+.env
+.env.local
+.env.development
+.env.production
+.env*.local
+
+# Next.js
+.next/
+out/
+build/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Cobertura de testes
+coverage/
+
+# Misc
+*.pem
+.vercel

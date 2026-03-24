@@ -36,8 +36,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen bg-gray-950 flex">
       <aside className="w-56 bg-gray-900 border-r border-gray-800 flex flex-col">
         <div className="p-5 border-b border-gray-800">
-           <h1 className="text-white font-bold text-lg">Cobranças</h1>
-    </div>
+          <h1 className="text-white font-bold text-lg">Cobranças</h1>
+          {user.tenantName && <p className="text-gray-500 text-xs mt-0.5">{user.tenantName}</p>}
+        </div>
         <nav className="flex-1 p-4 space-y-1">
           {navItems.map(({ href, label }) => {
             const active = pathname === href
@@ -57,13 +58,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           })}
         </nav>
         <div className="p-4 border-t border-gray-800">
-          <p className="text-gray-500 text-xs px-3 mb-2">{user.name}</p>
-            <button
-              onClick={logout}
-              className="w-full text-sm text-gray-400 hover:text-white px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors text-left"
-            >
-              Sair
-            </button>
+          {user.name && <p className="text-gray-500 text-xs px-3 mb-2">{user.name}</p>}
+          <button
+            onClick={logout}
+            className="w-full text-sm text-gray-400 hover:text-white px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors text-left"
+          >
+            Sair
+          </button>
         </div>
       </aside>
       <main className="flex-1 overflow-auto p-8">

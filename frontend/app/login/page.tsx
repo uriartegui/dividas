@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useAuth } from '@/lib/auth'
 
 export default function LoginPage() {
@@ -76,6 +77,13 @@ export default function LoginPage() {
           >
             {loading ? 'Entrando...' : 'Entrar'}
           </button>
+
+          <p className="text-center text-gray-500 text-sm mt-2">
+            Não tem conta?{' '}
+            <Link href="/register" className="text-blue-400 hover:text-blue-300">
+              Cadastrar clínica
+            </Link>
+          </p>
         </form>
       </div>
     </div>

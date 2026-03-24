@@ -14,7 +14,14 @@ const aiRoutes = require('./modules/ai/ai.routes')
 const app = express()
 
 app.use(helmet())
-app.use(cors())
+app.use(cors({
+  origin: [
+    'http://localhost:3001',
+    'https://dividas-frontend.vercel.app',
+    /\.vercel\.app$/
+  ],
+  credentials: true
+}))
 app.use(express.json())
 
 app.use(rateLimit({

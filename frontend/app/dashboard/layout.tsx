@@ -58,12 +58,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
         <div className="p-4 border-t border-gray-800">
           <p className="text-gray-500 text-xs px-3 mb-2">{user.name}</p>
-          <button
-            onClick={logout}
-            className="w-full text-sm text-gray-400 hover:text-white px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors text-left"
-          >
-            Sair
-          </button>
+            <button
+              onClick={logout}
+              className="w-full text-sm text-gray-400 hover:text-white px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors text-left"
+            >
+              Sair
+            </button>
         </div>
       </aside>
       <main className="flex-1 overflow-auto p-8">

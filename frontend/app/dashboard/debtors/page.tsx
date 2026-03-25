@@ -1,9 +1,16 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import api from '@/lib/api'
 
 interface Debtor {
   id: string; name: string; cpf: string; email: string; phone: string; active: boolean
+}
+
+interface ImportResult {
+  message: string
+  inserted: number
+  skipped: number
+  errors: { linha: number; erro: string }[]
 }
 
 const empty = { name: '', cpf: '', email: '', phone: '', notes: '' }
@@ -19,6 +26,13 @@ export default function DebtorsPage() {
   const [form, setForm] = useState(empty)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  // CSV Import
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  const [showImportResult, setShowImportResult] = useState(false)
+
   const limit = 15
 
   const load = useCallback(async () => {
@@ -58,15 +72,99 @@ export default function DebtorsPage() {
     load()
   }
 
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setImporting(true)
+    setImportResult(null)
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const { data } = await api.post('/debtors/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      setImportResult(data)
+      setShowImportResult(true)
+      load()
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Erro ao importar CSV'
+      setImportResult({ message: msg, inserted: 0, skipped: 0, errors: [] })
+      setShowImportResult(true)
+    } finally {
+      setImporting(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
   const totalPages = Math.ceil(total / limit)
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-white">Devedores <span className="text-gray-500 text-base font-normal">({total})</span></h2>
-        <button onClick={() => setShowModal(true)} className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
-          + Novo Devedor
-        </button>
+        <h2 className="text-2xl font-bold text-white">
+          Devedores <span className="text-gray-500 text-base font-normal">({total})</span>
+        </h2>
+        <div className="flex gap-2">
+          {/* Botão Import CSV */}
+          <label className={`cursor-pointer flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors ${importing ? 'opacity-50 pointer-events-none' : ''}`}>
+            {importing ? '⏳ Importando...' : '📂 Importar CSV'}
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={handleImport}
+              disabled={importing}
+            />
+          </label>
+          <button
+            onClick={() => setShowModal(true)}
+            className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+          >
+            + Novo Devedor
+          </button>
+        </div>
+      </div>
+
+      {/* Resultado do Import */}
+      {showImportResult && importResult && (
+        <div className={`mb-4 p-4 rounded-xl border ${importResult.inserted > 0 ? 'bg-green-900/30 border-green-700' : 'bg-red-900/30 border-red-700'}`}>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-white font-semibold mb-1">{importResult.message}</p>
+              <div className="flex gap-4 text-sm">
+                <span className="text-green-400">✓ {importResult.inserted} inseridos</span>
+                {importResult.skipped > 0 && <span className="text-yellow-400">⚠ {importResult.skipped} ignorados</span>}
+                {importResult.errors.length > 0 && <span className="text-red-400">✕ {importResult.errors.length} erros</span>}
+              </div>
+              {importResult.errors.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {importResult.errors.slice(0, 5).map((e, i) => (
+                    <p key={i} className="text-xs text-red-300">Linha {e.linha}: {e.erro}</p>
+                  ))}
+                  {importResult.errors.length > 5 && (
+                    <p className="text-xs text-red-300">...e mais {importResult.errors.length - 5} erros</p>
+                  )}
+                </div>
+              )}
+            </div>
+            <button onClick={() => setShowImportResult(false)} className="text-gray-400 hover:text-white text-lg leading-none ml-4">✕</button>
+          </div>
+        </div>
+      )}
+
+      {/* Dica de formato CSV */}
+      <div className="mb-4 p-3 bg-gray-900 border border-gray-800 rounded-lg">
+        <p className="text-xs text-gray-500">
+          📋 <strong className="text-gray-400">Formato do CSV:</strong> cabeçalho com colunas{' '}
+          <code className="bg-gray-800 px-1 rounded text-gray-300">nome</code>,{' '}
+          <code className="bg-gray-800 px-1 rounded text-gray-300">cpf</code>,{' '}
+          <code className="bg-gray-800 px-1 rounded text-gray-300">email</code>,{' '}
+          <code className="bg-gray-800 px-1 rounded text-gray-300">telefone</code> — apenas nome é obrigatório.
+        </p>
       </div>
 
       {/* Busca */}
@@ -136,7 +234,7 @@ export default function DebtorsPage() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal Novo Devedor */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-md">

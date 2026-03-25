@@ -7,6 +7,7 @@ const supabase = require('../../config/db')
 router.post('/webhook', async (req, res) => {
   try {
     const body = req.body
+    console.log('📩 Webhook recebido:', JSON.stringify(body).slice(0, 300))
     // Z-API envia diferentes formatos dependendo do tipo de mensagem
     const phone = (body.phone || '').replace(/\D/g, '')
     const text = body.text?.message || body.image?.caption || body.audio?.caption || ''

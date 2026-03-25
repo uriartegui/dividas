@@ -36,20 +36,21 @@ export default function CollectionRulesPage() {
   }
 
   async function toggleRule(days: number) {
-    const rule = getRule(days)
-    if (rule) {
-      await api.put(`/collection-rules/${rule.id}`, { ...rule, active: !rule.active })
-      toast.success(rule.active ? 'Regra desativada' : 'Regra ativada')
-    } else {
-      await api.post('/collection-rules', {
-        days_after_due: days,
-        message_template: DEFAULT_TEMPLATES[days as keyof typeof DEFAULT_TEMPLATES],
-        active: true,
-      })
-      toast.success(`Regra D+${days} criada!`)
-    }
-    loadRules()
+  const rule = getRule(days)
+  if (rule) {
+    setRules(prev => prev.map(r => r.id === rule.id ? { ...r, active: !r.active } : r))
+    await api.put(`/collection-rules/${rule.id}`, { ...rule, active: !rule.active })
+    toast.success(rule.active ? 'Regra desativada' : 'Regra ativada')
+  } else {
+    const { data } = await api.post('/collection-rules', {
+      days_after_due: days,
+      message_template: DEFAULT_TEMPLATES[days as keyof typeof DEFAULT_TEMPLATES],
+      active: true,
+    })
+    setRules(prev => [...prev, data])
+    toast.success(`Regra D+${days} criada!`)
   }
+}
 
   async function saveTemplate(days: number, template: string) {
     const rule = getRule(days)
@@ -64,7 +65,6 @@ export default function CollectionRulesPage() {
 
   return (
     <div className="p-8">
-      <Toaster />
       <h1 className="text-2xl font-bold text-white mb-2">⚙️ Régua de Cobrança</h1>
       <p className="text-gray-400 mb-8">Configure mensagens automáticas por WhatsApp após o vencimento. Disparadas todo dia às 08h.</p>
 

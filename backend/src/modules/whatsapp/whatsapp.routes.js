@@ -7,29 +7,37 @@ const supabase = require('../../config/db')
 router.post('/webhook', async (req, res) => {
   try {
     const body = req.body
-    console.log('📩 Webhook recebido:', JSON.stringify(body).slice(0, 300))
+    console.log('📩 Webhook recebido:', JSON.stringify(body).slice(0, 500))
     // Z-API envia diferentes formatos dependendo do tipo de mensagem
     const phone = (body.phone || '').replace(/\D/g, '')
     const text = body.text?.message || body.image?.caption || body.audio?.caption || ''
     const fromMe = body.fromMe === true
 
-    if (!phone || !text) return res.sendStatus(200)
+    console.log(`📞 phone=${phone} fromMe=${fromMe} text="${text}"`)
+
+    if (!phone || !text) {
+      console.log('⚠️ Ignorado: sem phone ou text')
+      return res.sendStatus(200)
+    }
 
     // Normaliza: tenta com e sem prefixo 55
     const phoneVariants = [
-      phone,                                          // ex: 554888282153
-      phone.startsWith('55') ? phone.slice(2) : phone, // ex: 4888282153
-      `55${phone}`,                                   // ex: 554888282153
+      phone,
+      phone.startsWith('55') ? phone.slice(2) : phone,
+      `55${phone}`,
     ]
     const orFilter = phoneVariants.map(p => `phone.eq.${p}`).join(',')
+    console.log('🔍 Buscando devedor com:', orFilter)
 
     // Busca devedor pelo telefone (em qualquer tenant)
-    const { data: debtor } = await supabase
+    const { data: debtor, error: debtorError } = await supabase
       .from('debtors')
-      .select('id, tenant_id')
+      .select('id, tenant_id, name')
       .or(orFilter)
       .limit(1)
       .single()
+
+    console.log('👤 Devedor encontrado:', debtor, 'Erro:', debtorError?.message)
 
     if (!debtor) return res.sendStatus(200)
 

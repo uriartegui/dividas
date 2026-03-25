@@ -41,15 +41,16 @@ router.post('/webhook', async (req, res) => {
 
     if (!debtor) return res.sendStatus(200)
 
-    await supabase.from('messages').insert({
+    const { data: insertData, error: insertError } = await supabase.from('messages').insert({
       tenant_id: debtor.tenant_id,
       debtor_id: debtor.id,
       direction: fromMe ? 'outbound' : 'inbound',
       channel: 'whatsapp',
       content: text,
-      status: 'received',
+      status: 'sent',
       sent_at: new Date().toISOString(),
-    })
+    }).select()
+    console.log('💾 Insert resultado:', insertData, 'Erro:', insertError?.message)
 
     res.sendStatus(200)
   } catch (err) {

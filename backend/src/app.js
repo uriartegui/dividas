@@ -13,6 +13,7 @@ const aiRoutes = require('./modules/ai/ai.routes')
 const agreementRoutes = require('./modules/agreements/agreements.routes')
 const profileRoutes = require('./modules/profile/profile.routes')
 const exportRoutes = require('./modules/export/export.routes')
+const stripeRoutes = require('./modules/stripe/stripe.routes')
 const { initScheduler } = require('./modules/scheduler/scheduler')
 
 const app = express()
@@ -28,6 +29,8 @@ app.use(cors({
   ],
   credentials: true
 }))
+// Webhook Stripe precisa de body raw — registrar ANTES do express.json()
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }))
 app.use(express.json())
 
 app.use(rateLimit({
@@ -48,6 +51,7 @@ app.use('/api/ai', aiRoutes)
 app.use('/api/agreements', agreementRoutes)
 app.use('/api/profile', profileRoutes)
 app.use('/api/export', exportRoutes)
+app.use('/api/stripe', stripeRoutes)
 
 // Inicia agendador de cobrança automática
 if (process.env.NODE_ENV !== 'test') {

@@ -1,169 +1,240 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import api from '@/lib/api'
+
+interface Conversation {
+  debtor_id: string
+  content: string
+  direction: string
+  created_at: string
+  debtors: { id: string; name: string; phone: string }
+}
 
 interface Message {
   id: string
   content: string
+  direction: 'inbound' | 'outbound'
   status: string
   created_at: string
-  sent_at: string
-  debtors: { name: string; phone: string }
-}
-
-const statusColor: Record<string, string> = {
-  sent: 'bg-green-500/20 text-green-400',
-  failed: 'bg-red-500/20 text-red-400',
-  queued: 'bg-yellow-500/20 text-yellow-400',
-  delivered: 'bg-blue-500/20 text-blue-400',
-  read: 'bg-purple-500/20 text-purple-400',
-}
-
-const statusLabel: Record<string, string> = {
-  sent: 'Enviado',
-  failed: 'Falhou',
-  queued: 'Na fila',
-  delivered: 'Entregue',
-  read: 'Lido',
 }
 
 export default function WhatsAppPage() {
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [selected, setSelected] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
-  const [loading, setLoading] = useState(true)
+  const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
-  const [lastResult, setLastResult] = useState<any>(null)
-  const [preview, setPreview] = useState<Message | null>(null)
+  const [campaign, setCampaign] = useState(false)
+  const [campaignResult, setCampaignResult] = useState<any>(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
 
-  const load = async () => {
+  const loadConversations = async () => {
     try {
-      const { data } = await api.get('/whatsapp/messages')
-      setMessages(data)
-    } finally {
-      setLoading(false)
-    }
+      const { data } = await api.get('/whatsapp/conversations')
+      setConversations(data)
+    } catch {}
   }
 
-  useEffect(() => { load() }, [])
-
-  const sendCampaign = async () => {
-    setSending(true)
-    setLastResult(null)
+  const loadMessages = async (debtorId: string) => {
     try {
-      const { data } = await api.post('/whatsapp/send')
-      setLastResult(data)
-      load()
+      const { data } = await api.get(`/whatsapp/conversations/${debtorId}`)
+      setMessages(data)
+    } catch {}
+  }
+
+  useEffect(() => {
+    loadConversations()
+    const interval = setInterval(loadConversations, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    if (!selected) return
+    loadMessages(selected.debtor_id)
+    const interval = setInterval(() => loadMessages(selected.debtor_id), 3000)
+    return () => clearInterval(interval)
+  }, [selected])
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  const handleSelect = (conv: Conversation) => {
+    setSelected(conv)
+    setMessages([])
+    loadMessages(conv.debtor_id)
+  }
+
+  const handleReply = async () => {
+    if (!reply.trim() || !selected) return
+    setSending(true)
+    try {
+      await api.post('/whatsapp/reply', { debtorId: selected.debtor_id, message: reply })
+      setReply('')
+      await loadMessages(selected.debtor_id)
+      await loadConversations()
     } catch {
-      alert('Erro ao enviar campanha')
+      alert('Erro ao enviar mensagem')
     } finally {
       setSending(false)
     }
   }
 
+  const handleCampaign = async () => {
+    setCampaign(true)
+    setCampaignResult(null)
+    try {
+      const { data } = await api.post('/whatsapp/send')
+      setCampaignResult(data)
+      await loadConversations()
+    } catch {
+      alert('Erro ao disparar campanha')
+    } finally {
+      setCampaign(false)
+    }
+  }
+
+  const fmt = (d: string) => new Date(d).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString('pt-BR')
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-white">WhatsApp</h2>
+    <div className="flex flex-col h-[calc(100vh-4rem)]">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-bold text-white">💬 WhatsApp</h2>
         <button
-          onClick={sendCampaign}
-          disabled={sending}
-          className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors flex items-center gap-2"
+          onClick={handleCampaign}
+          disabled={campaign}
+          className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
         >
-          {sending ? '📤 Enviando...' : '📱 Disparar Campanha'}
+          {campaign ? '📤 Enviando...' : '📱 Disparar Campanha'}
         </button>
       </div>
 
-      {/* Resultado */}
-      {lastResult && (
-        <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 mb-6">
-          <p className="text-green-400 font-semibold mb-1">
-            ✅ Campanha concluída — {lastResult.sent} enviado(s), {lastResult.failed} falha(s)
-          </p>
-          <div className="space-y-1 mt-2">
-            {lastResult.results.map((r: any, i: number) => (
-              <p key={i} className="text-sm text-gray-300">
-                • <span className="text-white">{r.debtorName}</span> ({r.phone}) —{' '}
-                <span className={r.status === 'sent' ? 'text-green-400' : 'text-red-400'}>
-                  {r.status === 'sent' ? 'Enviado' : 'Falhou'}
-                </span>
-              </p>
-            ))}
-          </div>
+      {campaignResult && (
+        <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 mb-4 text-sm text-green-400">
+          ✅ {campaignResult.sent} enviado(s), {campaignResult.failed} falha(s)
         </div>
       )}
 
-      {/* Tabela */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-        <div className="px-5 py-3 border-b border-gray-800 flex items-center justify-between">
-          <h3 className="text-white font-semibold text-sm">Mensagens Enviadas</h3>
-          <span className="text-gray-500 text-xs">{messages.length} mensagem(s)</span>
+      {/* Chat layout */}
+      <div className="flex flex-1 gap-4 overflow-hidden">
+
+        {/* Lista de conversas */}
+        <div className="w-72 bg-gray-900 border border-gray-800 rounded-xl flex flex-col overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-800">
+            <p className="text-white font-semibold text-sm">Conversas</p>
+            <p className="text-gray-500 text-xs">{conversations.length} contato(s)</p>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {conversations.length === 0 ? (
+              <p className="text-gray-500 text-sm p-4">Nenhuma conversa ainda.</p>
+            ) : (
+              conversations.map((conv) => (
+                <button
+                  key={conv.debtor_id}
+                  onClick={() => handleSelect(conv)}
+                  className={`w-full text-left px-4 py-3 border-b border-gray-800 hover:bg-gray-800 transition-colors ${
+                    selected?.debtor_id === conv.debtor_id ? 'bg-gray-800 border-l-2 border-l-green-500' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                      {conv.debtors?.name?.[0]?.toUpperCase() || '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-medium truncate">{conv.debtors?.name}</p>
+                      <p className="text-gray-500 text-xs truncate">{conv.content}</p>
+                    </div>
+                    <div className="flex-shrink-0">
+                      <p className="text-gray-600 text-xs">{fmt(conv.created_at)}</p>
+                      {conv.direction === 'inbound' && (
+                        <span className="block mt-1 w-2 h-2 rounded-full bg-green-500 ml-auto" />
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
         </div>
 
-        {loading ? (
-          <p className="text-gray-400 p-5">Carregando...</p>
-        ) : messages.length === 0 ? (
-          <p className="text-gray-400 p-5">Nenhuma mensagem enviada ainda.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-800 text-gray-400">
-                <th className="text-left px-5 py-3">Devedor</th>
-                <th className="text-left px-5 py-3">Telefone</th>
-                <th className="text-left px-5 py-3">Status</th>
-                <th className="text-left px-5 py-3">Enviado em</th>
-                <th className="px-5 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {messages.map((m) => (
-                <tr key={m.id} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
-                  <td className="px-5 py-3 text-white font-medium">{m.debtors?.name}</td>
-                  <td className="px-5 py-3 text-gray-400">{m.debtors?.phone}</td>
-                  <td className="px-5 py-3">
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColor[m.status] || 'bg-gray-700 text-gray-300'}`}>
-                      {statusLabel[m.status] || m.status}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-gray-400">
-                    {m.sent_at ? new Date(m.sent_at).toLocaleString('pt-BR') : '—'}
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    <button
-                      onClick={() => setPreview(m)}
-                      className="text-blue-400 hover:text-blue-300 text-xs transition-colors"
-                    >
-                      Ver mensagem
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        {/* Área de chat */}
+        <div className="flex-1 bg-gray-900 border border-gray-800 rounded-xl flex flex-col overflow-hidden">
+          {!selected ? (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center">
+                <p className="text-4xl mb-3">💬</p>
+                <p className="text-gray-400 text-sm">Selecione uma conversa para começar</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Header do chat */}
+              <div className="px-5 py-3 border-b border-gray-800 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-sm">
+                  {selected.debtors?.name?.[0]?.toUpperCase()}
+                </div>
+                <div>
+                  <p className="text-white font-semibold text-sm">{selected.debtors?.name}</p>
+                  <p className="text-gray-500 text-xs">{selected.debtors?.phone}</p>
+                </div>
+              </div>
+
+              {/* Mensagens */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                {messages.map((msg, i) => {
+                  const isOut = msg.direction === 'outbound'
+                  const showDate = i === 0 || fmtDate(messages[i - 1].created_at) !== fmtDate(msg.created_at)
+                  return (
+                    <div key={msg.id}>
+                      {showDate && (
+                        <div className="text-center my-2">
+                          <span className="text-xs text-gray-500 bg-gray-800 px-3 py-1 rounded-full">
+                            {fmtDate(msg.created_at)}
+                          </span>
+                        </div>
+                      )}
+                      <div className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl text-sm ${
+                          isOut
+                            ? 'bg-green-600 text-white rounded-br-sm'
+                            : 'bg-gray-800 text-gray-100 rounded-bl-sm'
+                        }`}>
+                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                          <p className={`text-xs mt-1 ${isOut ? 'text-green-200 text-right' : 'text-gray-500'}`}>
+                            {fmt(msg.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+                <div ref={bottomRef} />
+              </div>
+
+              {/* Input de resposta */}
+              <div className="px-4 py-3 border-t border-gray-800 flex gap-2">
+                <input
+                  type="text"
+                  value={reply}
+                  onChange={e => setReply(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleReply()}
+                  placeholder="Digite uma mensagem..."
+                  className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-green-500 placeholder-gray-500"
+                />
+                <button
+                  onClick={handleReply}
+                  disabled={sending || !reply.trim()}
+                  className="bg-green-600 hover:bg-green-500 disabled:opacity-40 text-white px-4 py-2 rounded-xl transition-colors text-sm font-semibold"
+                >
+                  {sending ? '...' : '➤'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
-
-      {/* Modal preview */}
-      {preview && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-md">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-white font-bold">Mensagem enviada</h3>
-              <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColor[preview.status]}`}>
-                {statusLabel[preview.status]}
-              </span>
-            </div>
-            <p className="text-gray-400 text-xs mb-4">{preview.debtors?.name} — {preview.debtors?.phone}</p>
-            <div className="bg-green-900/30 border border-green-800/50 rounded-xl p-4 max-h-64 overflow-y-auto">
-              <pre className="text-sm text-gray-200 whitespace-pre-wrap font-sans">{preview.content}</pre>
-            </div>
-            <button
-              onClick={() => setPreview(null)}
-              className="mt-4 w-full bg-gray-800 hover:bg-gray-700 text-white text-sm py-2 rounded-lg transition-colors"
-            >
-              Fechar
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

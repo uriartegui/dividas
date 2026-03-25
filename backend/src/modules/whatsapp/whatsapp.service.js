@@ -112,4 +112,8 @@ async function runWhatsAppCampaign(tenantId) {
   return { sent, failed, results }
 }
 
-module.exports = { runWhatsAppCampaign, buildMessage }
+async function replyWhatsApp(tenantId, debtorId, phone, message) {
+  return sendWhatsApp(tenantId, null, debtorId, phone, message)
+}
+
+module.exports = { runWhatsAppCampaign, buildMessage, replyWhatsApp }

@@ -1,5 +1,5 @@
-const router = require('express').Router()
-const controller = require('./auth.controller')
+const router = require("express").Router();
+const controller = require("./auth.controller");
 
 /**
  * @swagger
@@ -26,7 +26,7 @@ const controller = require('./auth.controller')
  *       400:
  *         description: Slug já em uso
  */
-router.post('/register', controller.register)
+router.post("/register", controller.register);
 
 /**
  * @swagger
@@ -59,7 +59,7 @@ router.post('/register', controller.register)
  *       401:
  *         description: Credenciais inválidas
  */
-router.post('/login', controller.login)
+router.post("/login", controller.login);
 
 /**
  * @swagger
@@ -82,7 +82,7 @@ router.post('/login', controller.login)
  *       401:
  *         description: Refresh token inválido
  */
-router.post('/refresh', controller.refresh)
+router.post("/refresh", controller.refresh);
 
 /**
  * @swagger
@@ -94,6 +94,12 @@ router.post('/refresh', controller.refresh)
  *       200:
  *         description: Logout realizado
  */
-router.post('/logout', controller.logout)
+router.post("/logout", controller.logout);
 
-module.exports = router
+// Esqueci minha senha
+router.post("/forgot-password", controller.forgotPassword);
+
+// Resetar senha
+router.post("/reset-password", controller.resetPassword);
+
+module.exports = router;

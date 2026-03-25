@@ -14,11 +14,19 @@ router.post('/webhook', async (req, res) => {
 
     if (!phone || !text) return res.sendStatus(200)
 
+    // Normaliza: tenta com e sem prefixo 55
+    const phoneVariants = [
+      phone,                                          // ex: 554888282153
+      phone.startsWith('55') ? phone.slice(2) : phone, // ex: 4888282153
+      `55${phone}`,                                   // ex: 554888282153
+    ]
+    const orFilter = phoneVariants.map(p => `phone.eq.${p}`).join(',')
+
     // Busca devedor pelo telefone (em qualquer tenant)
     const { data: debtor } = await supabase
       .from('debtors')
       .select('id, tenant_id')
-      .or(`phone.eq.${phone},phone.eq.55${phone}`)
+      .or(orFilter)
       .limit(1)
       .single()
 

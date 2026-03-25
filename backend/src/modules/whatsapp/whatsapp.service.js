@@ -1,4 +1,9 @@
 const supabase = require('../../config/db')
+const axios = require('axios')
+
+const ZAPI_INSTANCE = process.env.ZAPI_INSTANCE_ID
+const ZAPI_TOKEN = process.env.ZAPI_TOKEN
+const ZAPI_CLIENT_TOKEN = process.env.ZAPI_CLIENT_TOKEN
 
 function buildMessage(debtorName, amount, dueDate) {
   const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -10,21 +15,51 @@ Identificamos uma pendência em seu cadastro:
 💰 *Valor:* ${fmt(amount)}
 📅 *Vencimento:* ${date}
 
-Para regularizar sua situação e evitar negativação, acesse o link abaixo:
-
-🔗 *Link de pagamento:* https://pagar.clinica.com.br/${Math.random().toString(36).slice(2, 10)}
+Para regularizar sua situação e evitar negativação, entre em contato com nossa equipe financeira.
 
 Qualquer dúvida, responda esta mensagem.
-_Clínica — Departamento Financeiro_`
+_Departamento Financeiro_`
+}
+
+function formatPhone(phone) {
+  // Remove tudo que não é número
+  const digits = phone.replace(/\D/g, '')
+  // Se começa com 0, remove
+  const clean = digits.startsWith('0') ? digits.slice(1) : digits
+  // Se não tem código do país, adiciona 55 (Brasil)
+  if (clean.length === 10 || clean.length === 11) return `55${clean}`
+  return clean
 }
 
 async function sendWhatsApp(tenantId, debtId, debtorId, phone, message) {
-  // Mock: simula envio e retorna status
-  await new Promise(r => setTimeout(r, 300)) // simula latência
+  const formattedPhone = formatPhone(phone)
+  let success = false
+  let externalId = null
+  let status = 'failed'
 
-  const success = Math.random() > 0.1 // 90% de sucesso
-  const status = success ? 'sent' : 'failed'
-  const externalId = success ? `mock_${Date.now()}_${Math.random().toString(36).slice(2, 6)}` : null
+  if (ZAPI_INSTANCE && ZAPI_TOKEN) {
+    try {
+      const url = `https://api.z-api.io/instances/${ZAPI_INSTANCE}/token/${ZAPI_TOKEN}/send-text`
+      const headers = ZAPI_CLIENT_TOKEN ? { 'Client-Token': ZAPI_CLIENT_TOKEN } : {}
+      const { data } = await axios.post(url, {
+        phone: formattedPhone,
+        message,
+      }, { headers })
+
+      success = true
+      externalId = data.zaapId || data.messageId || `zapi_${Date.now()}`
+      status = 'sent'
+    } catch (err) {
+      console.error('Z-API error:', err?.response?.data || err.message)
+      status = 'failed'
+    }
+  } else {
+    // Fallback mock quando Z-API não configurada
+    await new Promise(r => setTimeout(r, 300))
+    success = Math.random() > 0.1
+    externalId = success ? `mock_${Date.now()}_${Math.random().toString(36).slice(2, 6)}` : null
+    status = success ? 'sent' : 'failed'
+  }
 
   const { data, error } = await supabase.from('messages').insert({
     tenant_id: tenantId,

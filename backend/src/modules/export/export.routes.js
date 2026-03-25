@@ -272,9 +272,14 @@ router.get("/report/pdf", async (req, res, next) => {
 const footerY = doc.page.height - doc.page.margins.bottom - 20
 doc.moveTo(40, footerY).lineTo(555, footerY).strokeColor('#E5E7EB').lineWidth(1).stroke()
 doc.fillColor('#9CA3AF').fontSize(8).font('Helvetica')
-  .text('Cobranças SaaS — Sistema de gestão de inadimplência', 40, footerY + 4, { 
-    align: 'center', width: 515, lineBreak: false 
+  .text('Cobranças SaaS — Sistema de gestão de inadimplência', 40, footerY + 4, {
+    align: 'center', width: 515, lineBreak: false
   });
 
+    doc.end();
+  } catch (err) {
+    next(err);
+  }
+});
 
 module.exports = router;

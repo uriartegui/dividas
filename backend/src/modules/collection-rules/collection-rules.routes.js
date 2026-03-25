@@ -1,9 +1,9 @@
 const express = require('express')
 const router = express.Router()
 const supabase = require('../../config/db')
-const { authenticate } = require('../../middlewares/auth.middleware')
+const authMiddleware = require('../../middlewares/auth.middleware')
 
-router.use(authenticate)
+router.use(authMiddleware)
 
 router.get('/', async (req, res) => {
   const { data, error } = await supabase

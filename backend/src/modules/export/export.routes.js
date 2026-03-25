@@ -269,11 +269,17 @@ router.get("/report/pdf", async (req, res, next) => {
     });
 
     // Rodapé
-    doc.moveTo(40, 800).lineTo(555, 800).strokeColor("#E5E7EB").stroke();
+    y += 16;
+    doc
+      .moveTo(40, y)
+      .lineTo(555, y)
+      .strokeColor("#E5E7EB")
+      .lineWidth(1)
+      .stroke();
     doc
       .fillColor("#9CA3AF")
       .fontSize(8)
-      .text("Cobranças SaaS — Sistema de gestão de inadimplência", 40, 808, {
+      .text("Cobranças SaaS — Sistema de gestão de inadimplência", 40, y + 6, {
         align: "center",
         width: 515,
       });

@@ -112,7 +112,7 @@ export default function DashboardPage() {
               <Tooltip
                 contentStyle={{ background: '#111827', border: '1px solid #374151', borderRadius: 8 }}
                 labelStyle={{ color: '#fff' }}
-                formatter={(v: number) => fmt(v)}
+                formatter={(v: number | string) => fmt(Number(v))}
               />
               <Legend wrapperStyle={{ color: '#9ca3af', fontSize: 12 }} />
               <Bar dataKey="aberto" name="Em Aberto" fill="#f87171" radius={[4, 4, 0, 0]} />

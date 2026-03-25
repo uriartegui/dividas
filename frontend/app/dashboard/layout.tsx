@@ -13,6 +13,7 @@ const navItems = [
   { href: '/dashboard/agreements', label: '🤝 Acordos' },
   { href: '/dashboard/ai-chat', label: '🤖 Chat IA' },
   { href: '/dashboard/whatsapp', label: '💬 WhatsApp' },
+  { href: '/dashboard/collection-rules', label: '⚙️ Régua' },
   { href: '/dashboard/billing', label: '💳 Planos' },
   { href: '/dashboard/profile', label: '🏥 Perfil' },
 ]

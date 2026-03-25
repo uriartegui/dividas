@@ -18,6 +18,7 @@ const exportRoutes = require('./modules/export/export.routes')
 const stripeRoutes = require('./modules/stripe/stripe.routes')
 const adminRoutes = require('./modules/admin/admin.routes')
 const { initScheduler } = require('./modules/scheduler/scheduler')
+const collectionRulesRoutes = require('./modules/collection-rules/collection-rules.routes')
 
 const app = express()
 
@@ -61,6 +62,7 @@ app.use('/api/profile', profileRoutes)
 app.use('/api/export', exportRoutes)
 app.use('/api/stripe', stripeRoutes)
 app.use('/api/admin', adminRoutes)
+app.use('/api/collection-rules', collectionRulesRoutes)
 
 // Inicia agendador de cobrança automática
 if (process.env.NODE_ENV !== 'test') {

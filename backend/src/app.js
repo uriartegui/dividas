@@ -2,6 +2,8 @@ const express = require('express')
 const helmet = require('helmet')
 const cors = require('cors')
 const rateLimit = require('express-rate-limit')
+const swaggerUi = require('swagger-ui-express')
+const swaggerSpec = require('./config/swagger')
 
 const authRoutes = require('./modules/auth/auth.routes')
 const debtorRoutes = require('./modules/debtors/debtor.routes')
@@ -41,6 +43,11 @@ app.use(rateLimit({
 }))
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }))
+
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { background-color: #111827 }',
+  customSiteTitle: 'Cobranças SaaS - API Docs',
+}))
 
 app.use('/api/auth', authRoutes)
 app.use('/api/debtors', debtorRoutes)

@@ -2,6 +2,7 @@
 import { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { Toaster } from 'react-hot-toast'
 import { useAuth } from '@/lib/auth'
 
 const navItems = [
@@ -12,6 +13,7 @@ const navItems = [
   { href: '/dashboard/agreements', label: '🤝 Acordos' },
   { href: '/dashboard/ai-chat', label: '🤖 Chat IA' },
   { href: '/dashboard/whatsapp', label: '💬 WhatsApp' },
+  { href: '/dashboard/profile', label: '🏥 Perfil' },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -70,6 +72,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <main className="flex-1 overflow-auto p-8">
         {children}
       </main>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3500,
+          style: { background: '#1f2937', color: '#fff', border: '1px solid #374151' },
+          success: { iconTheme: { primary: '#22c55e', secondary: '#fff' } },
+          error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } },
+        }}
+      />
     </div>
   )
 }

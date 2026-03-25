@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import api from '@/lib/api'
+import toast from 'react-hot-toast'
 
 interface Debtor {
   id: string; name: string; cpf: string; email: string; phone: string; active: boolean
@@ -42,7 +43,7 @@ export default function DebtorsPage() {
       setDebtors(data.data)
       setTotal(data.total)
     } catch {
-      setError('Erro ao carregar devedores')
+      toast.error('Erro ao carregar devedores')
     } finally {
       setLoading(false)
     }
@@ -62,13 +63,15 @@ export default function DebtorsPage() {
     try {
       await api.post('/debtors', form)
       setForm(empty); setShowModal(false); load()
-    } catch { setError('Erro ao salvar devedor') }
+      toast.success('Devedor cadastrado com sucesso!')
+    } catch { toast.error('Erro ao salvar devedor') }
     finally { setSaving(false) }
   }
 
   const handleDelete = async (id: string) => {
     if (!confirm('Remover devedor?')) return
     await api.delete(`/debtors/${id}`)
+    toast.success('Devedor removido')
     load()
   }
 
@@ -88,11 +91,13 @@ export default function DebtorsPage() {
       })
       setImportResult(data)
       setShowImportResult(true)
+      toast.success(`${data.inserted} devedores importados!`)
       load()
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Erro ao importar CSV'
       setImportResult({ message: msg, inserted: 0, skipped: 0, errors: [] })
       setShowImportResult(true)
+      toast.error(msg)
     } finally {
       setImporting(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -108,6 +113,20 @@ export default function DebtorsPage() {
           Devedores <span className="text-gray-500 text-base font-normal">({total})</span>
         </h2>
         <div className="flex gap-2">
+          {/* Botão Export Excel */}
+          <button
+            onClick={async () => {
+              toast('Exportando Excel...', { icon: '📥' })
+              const res = await api.get('/export/debtors', { responseType: 'blob' })
+              const url = URL.createObjectURL(new Blob([res.data]))
+              const a = document.createElement('a')
+              a.href = url; a.download = 'devedores.xlsx'; a.click()
+              URL.revokeObjectURL(url)
+            }}
+            className="flex items-center gap-2 bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+          >
+            📥 Exportar Excel
+          </button>
           {/* Botão Import CSV */}
           <label className={`cursor-pointer flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors ${importing ? 'opacity-50 pointer-events-none' : ''}`}>
             {importing ? '⏳ Importando...' : '📂 Importar CSV'}

@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import api from '@/lib/api'
+import toast from 'react-hot-toast'
 
 interface Installment {
   id: string; installment_num: number; amount: number; due_date: string; paid_at: string | null; paid_amount: number | null
@@ -35,7 +36,7 @@ export default function AgreementsPage() {
       const { data } = await api.get('/agreements', { params: { status: statusFilter || undefined, page, limit } })
       setAgreements(data.data)
       setTotal(data.total)
-    } catch { /* silencioso */ }
+    } catch { toast.error('Erro ao carregar acordos') }
     finally { setLoading(false) }
   }, [statusFilter, page])
 
@@ -51,6 +52,7 @@ export default function AgreementsPage() {
 
   const markPaid = async (installmentId: string) => {
     await api.patch(`/agreements/installments/${installmentId}/pay`, {})
+    toast.success('Parcela marcada como paga!')
     if (selected) openDetail(selected.id)
   }
 

@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import api from '@/lib/api'
+import toast from 'react-hot-toast'
 
 interface Debt {
   id: string; description: string; current_amount: number; due_date: string; status: string
@@ -42,7 +43,7 @@ export default function DebtsPage() {
       setDebts(debtsRes.data.data)
       setTotal(debtsRes.data.total)
       setDebtors(debtorsRes.data.data)
-    } catch { setError('Erro ao carregar dados') }
+    } catch { toast.error('Erro ao carregar dados') }
     finally { setLoading(false) }
   }, [statusFilter, search, page])
 
@@ -57,12 +58,15 @@ export default function DebtsPage() {
     try {
       await api.post('/debts', { ...form, original_amount: parseFloat(form.original_amount) })
       setForm(empty); setShowModal(false); load()
-    } catch { setError('Erro ao salvar dívida') }
+      toast.success('Dívida cadastrada com sucesso!')
+    } catch { toast.error('Erro ao salvar dívida') }
     finally { setSaving(false) }
   }
 
   const handleStatus = async (id: string, status: string) => {
-    await api.patch(`/debts/${id}/status`, { status }); load()
+    await api.patch(`/debts/${id}/status`, { status })
+    toast.success('Status atualizado!')
+    load()
   }
 
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -72,9 +76,24 @@ export default function DebtsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-white">Dívidas <span className="text-gray-500 text-base font-normal">({total})</span></h2>
-        <button onClick={() => setShowModal(true)} className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
-          + Nova Dívida
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={async () => {
+              toast('Exportando Excel...', { icon: '📥' })
+              const res = await api.get('/export/debts', { responseType: 'blob' })
+              const url = URL.createObjectURL(new Blob([res.data]))
+              const a = document.createElement('a')
+              a.href = url; a.download = 'dividas.xlsx'; a.click()
+              URL.revokeObjectURL(url)
+            }}
+            className="flex items-center gap-2 bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+          >
+            📥 Exportar Excel
+          </button>
+          <button onClick={() => setShowModal(true)} className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+            + Nova Dívida
+          </button>
+        </div>
       </div>
 
       {/* Filtros */}

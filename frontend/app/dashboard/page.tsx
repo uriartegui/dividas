@@ -1,6 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
 import api from '@/lib/api'
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from 'recharts'
 
 interface Metrics {
   totalOpen: number
@@ -12,6 +15,12 @@ interface Metrics {
   successfulCalls: number
   messagesSent: number
   outcomeBreakdown: Record<string, number>
+}
+
+interface MonthlyData {
+  label: string
+  aberto: number
+  recuperado: number
 }
 
 const outcomeLabel: Record<string, string> = {
@@ -34,14 +43,24 @@ function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+function fmtK(v: number) {
+  if (v >= 1000) return `R$${(v / 1000).toFixed(1)}k`
+  return `R$${v.toFixed(0)}`
+}
+
 export default function DashboardPage() {
   const [metrics, setMetrics] = useState<Metrics | null>(null)
+  const [monthly, setMonthly] = useState<MonthlyData[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get('/dashboard/metrics')
-      .then(({ data }) => setMetrics(data))
-      .finally(() => setLoading(false))
+    Promise.all([
+      api.get('/dashboard/metrics'),
+      api.get('/dashboard/monthly'),
+    ]).then(([metricsRes, monthlyRes]) => {
+      setMetrics(metricsRes.data)
+      setMonthly(monthlyRes.data)
+    }).finally(() => setLoading(false))
   }, [])
 
   if (loading) return <p className="text-gray-400">Carregando métricas...</p>
@@ -77,9 +96,34 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Gráfico de evolução mensal */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-6">
+        <h3 className="text-white font-semibold text-sm mb-4">📈 Evolução Mensal (últimos 6 meses)</h3>
+        {monthly.every(m => m.aberto === 0 && m.recuperado === 0) ? (
+          <div className="flex items-center justify-center h-40">
+            <p className="text-gray-500 text-sm">Nenhuma dívida registrada ainda.</p>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={monthly} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="label" tick={{ fill: '#9ca3af', fontSize: 12 }} />
+              <YAxis tickFormatter={fmtK} tick={{ fill: '#9ca3af', fontSize: 11 }} />
+              <Tooltip
+                contentStyle={{ background: '#111827', border: '1px solid #374151', borderRadius: 8 }}
+                labelStyle={{ color: '#fff' }}
+                formatter={(v: number) => fmt(v)}
+              />
+              <Legend wrapperStyle={{ color: '#9ca3af', fontSize: 12 }} />
+              <Bar dataKey="aberto" name="Em Aberto" fill="#f87171" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="recuperado" name="Recuperado" fill="#4ade80" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
       {/* Segunda linha */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        {/* Chamadas */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
           <h3 className="text-white font-semibold text-sm mb-4">Chamadas Realizadas</h3>
           <div className="flex items-end gap-6">
@@ -100,7 +144,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Breakdown outcomes */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
           <h3 className="text-white font-semibold text-sm mb-4">Resultado das Chamadas</h3>
           {totalOutcomes === 0 ? (
@@ -116,10 +159,7 @@ export default function DashboardPage() {
                       <span className="text-white">{count} ({pct}%)</span>
                     </div>
                     <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${outcomeColor[outcome] || 'bg-gray-500'}`}
-                        style={{ width: `${pct}%` }}
-                      />
+                      <div className={`h-full rounded-full ${outcomeColor[outcome] || 'bg-gray-500'}`} style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 )

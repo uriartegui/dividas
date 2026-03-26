@@ -4,9 +4,9 @@ import api from "@/lib/api";
 import toast, { Toaster } from "react-hot-toast";
 
 const DEFAULT_TEMPLATES = {
-  1: "Olá, *{nome}*! 👋 Sua dívida de *{valor}* venceu ontem. Regularize agora para evitar juros.",
-  7: "Olá, *{nome}*! ⚠️ Sua dívida de *{valor}* está em atraso há 7 dias. Entre em contato para negociar.",
-  30: "Olá, *{nome}*! 🔴 Sua dívida de *{valor}* está em atraso há 30 dias. Risco de negativação no Serasa.",
+  1: "Olá, *{nome}*! 👋 Sua dívida de *{valor}* venceu ontem.\n\nRegularize agora e evite juros: {portal}\n\n_Departamento Financeiro_",
+  7: "Olá, *{nome}*! ⚠️ Sua dívida de *{valor}* está em atraso há {dias} dias.\n\nNegocie agora pelo link: {portal}\n\n_Departamento Financeiro_",
+  30: "Olá, *{nome}*! 🔴 Sua dívida de *{valor}* está em atraso há {dias} dias. Risco de negativação no Serasa.\n\nRegularize agora: {portal}\n\n_Departamento Financeiro_",
 };
 
 const PRESETS = [1, 7, 30];
@@ -123,7 +123,8 @@ export default function CollectionRulesPage() {
                   <code className="text-blue-400">{"{nome}"}</code>,{" "}
                   <code className="text-blue-400">{"{valor}"}</code>,{" "}
                   <code className="text-blue-400">{"{vencimento}"}</code>,{" "}
-                  <code className="text-blue-400">{"{dias}"}</code>
+                  <code className="text-blue-400">{"{dias}"}</code>,{" "}
+                  <code className="text-blue-400">{"{portal}"}</code>
                 </label>
                 <textarea
                   defaultValue={template}

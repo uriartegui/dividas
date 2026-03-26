@@ -69,7 +69,15 @@ router.post("/webhook", async (req, res) => {
         .limit(1)
         .single();
 
-      if (debt && process.env.ANTHROPIC_API_KEY) {
+      if (!debt) {
+        const { replyWhatsApp } = require("./whatsapp.service");
+        await replyWhatsApp(
+          debtor.tenant_id,
+          debtor.id,
+          debtor.phone,
+          `Olá, *${debtor.name}*! 😊 Não encontramos pendências em aberto no seu cadastro. Se precisar de mais informações, fale com nossa equipe. Obrigado!`,
+        );
+      } else if (process.env.ANTHROPIC_API_KEY) {
         try {
           const result = await negotiate({
             tenantId: debtor.tenant_id,

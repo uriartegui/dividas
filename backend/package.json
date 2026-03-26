@@ -8,6 +8,7 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
     "@supabase/supabase-js": "^2.100.0",
     "axios": "^1.13.6",
     "bcryptjs": "^2.4.3",

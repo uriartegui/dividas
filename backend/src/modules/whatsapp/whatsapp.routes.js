@@ -5,6 +5,7 @@ const supabase = require("../../config/db");
 const {
   notifyAgreementCreated,
 } = require("../notifications/notifications.service");
+const { negotiate } = require("../ai-negotiator/negotiator.service");
 
 // ─── WEBHOOK (sem auth — Z-API chama direto) ────────────────────────────────
 router.post("/webhook", async (req, res) => {
@@ -57,110 +58,115 @@ router.post("/webhook", async (req, res) => {
     });
 
     // Detecção de intenção (apenas mensagens do devedor)
-    if (!fromMe) {
-      const normalized = text
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
-      const intentPay =
-        /(quero pagar|vou pagar|aceito|topo|pode cobrar|quero quitar|como pago|quero regularizar|sim quero|quero sim)/.test(
-          normalized,
-        );
-      const intentInstallment =
-        /(quero parcelar|parcelar|parcelas|nao tenho tudo|em partes|em parcelas|posso parcelar)/.test(
-          normalized,
-        );
+    if (!fromMe && debtor) {
+      const { data: debt } = await supabase
+        .from("debts")
+        .select("id, current_amount, due_date, tenant_id")
+        .eq("tenant_id", debtor.tenant_id)
+        .eq("debtor_id", debtor.id)
+        .in("status", ["pending", "negotiating"])
+        .order("due_date", { ascending: true })
+        .limit(1)
+        .single();
 
-      if (intentPay || intentInstallment) {
-        // Busca dívida aberta
-        const { data: debt } = await supabase
-          .from("debts")
-          .select("id, current_amount, due_date")
-          .eq("tenant_id", debtor.tenant_id)
-          .eq("debtor_id", debtor.id)
-          .in("status", ["pending", "negotiating"])
-          .order("due_date", { ascending: true })
-          .limit(1)
-          .single();
+      if (debt && process.env.ANTHROPIC_API_KEY) {
+        try {
+          const result = await negotiate({
+            tenantId: debtor.tenant_id,
+            debtorId: debtor.id,
+            debtorName: debtor.name,
+            debt,
+            inboundMessage: text,
+          });
 
-        if (debt) {
-          const installments = intentInstallment ? 3 : 1;
-          const totalAmount = Number(debt.current_amount);
-          const installmentAmount = totalAmount / installments;
-          const firstDue = new Date();
-          firstDue.setDate(firstDue.getDate() + 3);
+          const { replyWhatsApp } = require("./whatsapp.service");
+          const {
+            notifyAgreementCreated,
+          } = require("../notifications/notifications.service");
 
-          // Cria acordo automaticamente
-          const { data: agreement } = await supabase
-            .from("agreements")
-            .insert({
-              tenant_id: debtor.tenant_id,
-              debt_id: debt.id,
-              debtor_id: debtor.id,
-              total_amount: totalAmount,
-              discount_pct: 0,
-              installments,
-              first_due_date: firstDue.toISOString().split("T")[0],
-              status: "active",
-              channel: "whatsapp",
-              notes: "Acordo gerado automaticamente via WhatsApp",
-            })
-            .select()
-            .single();
+          const isAgreement = [
+            "pay_full",
+            "pay_installment_3x",
+            "pay_installment_6x",
+          ].includes(result.intent);
 
-          if (agreement) {
-            // Cria parcelas
-            const parcelas = [];
-            for (let i = 0; i < installments; i++) {
-              const due = new Date(firstDue);
-              due.setMonth(due.getMonth() + i);
-              parcelas.push({
+          if (isAgreement) {
+            const installments =
+              result.intent === "pay_installment_6x"
+                ? 6
+                : result.intent === "pay_installment_3x"
+                  ? 3
+                  : 1;
+            const discount =
+              result.intent === "pay_full" ? result.discount_pct || 0 : 0;
+            const totalAmount =
+              Number(debt.current_amount) * (1 - discount / 100);
+            const installmentAmount = totalAmount / installments;
+            const firstDue = new Date();
+            firstDue.setDate(firstDue.getDate() + 3);
+
+            const { data: agreement } = await supabase
+              .from("agreements")
+              .insert({
                 tenant_id: debtor.tenant_id,
-                agreement_id: agreement.id,
-                installment_num: i + 1,
-                amount: installmentAmount,
-                due_date: due.toISOString().split("T")[0],
+                debt_id: debt.id,
+                debtor_id: debtor.id,
+                total_amount: totalAmount,
+                discount_pct: discount,
+                installments,
+                first_due_date: firstDue.toISOString().split("T")[0],
+                status: "active",
+                channel: "whatsapp",
+                notes: `Acordo fechado pela IA negociadora (D+${result.daysOverdue})`,
+              })
+              .select()
+              .single();
+
+            if (agreement) {
+              const parcelas = [];
+              for (let i = 0; i < installments; i++) {
+                const due = new Date(firstDue);
+                due.setMonth(due.getMonth() + i);
+                parcelas.push({
+                  tenant_id: debtor.tenant_id,
+                  agreement_id: agreement.id,
+                  installment_num: i + 1,
+                  amount: installmentAmount,
+                  due_date: due.toISOString().split("T")[0],
+                });
+              }
+              await supabase.from("agreement_installments").insert(parcelas);
+              await supabase
+                .from("debts")
+                .update({ status: "agreed" })
+                .eq("id", debt.id);
+
+              await notifyAgreementCreated({
+                tenantId: debtor.tenant_id,
+                debtorName: debtor.name,
+                totalAmount,
+                installments,
+                channel: "whatsapp",
               });
+
+              console.log(
+                `🤝 IA fechou acordo com ${debtor.name} (${installments}x, ${discount}% desconto)`,
+              );
             }
-            await supabase.from("agreement_installments").insert(parcelas);
-
-            // Atualiza status da dívida
-            await supabase
-              .from("debts")
-              .update({ status: "agreed" })
-              .eq("id", debt.id);
-
-            // Monta resposta
-            const fmt = (v) =>
-              Number(v).toLocaleString("pt-BR", {
-                style: "currency",
-                currency: "BRL",
-              });
-            let reply = "";
-            if (installments === 1) {
-              reply = `Olá, *${debtor.name}*! ✅\n\nSeu acordo foi registrado:\n\n💰 *Valor:* ${fmt(totalAmount)}\n📅 *Vencimento:* ${firstDue.toLocaleDateString("pt-BR")}\n\nEntraremos em contato com os dados para pagamento em breve.\n\n_Departamento Financeiro_`;
-            } else {
-              reply = `Olá, *${debtor.name}*! ✅\n\nSeu parcelamento foi registrado:\n\n💰 *Total:* ${fmt(totalAmount)}\n📋 *Parcelas:* ${installments}x de ${fmt(installmentAmount)}\n📅 *Primeira parcela:* ${firstDue.toLocaleDateString("pt-BR")}\n\nEntraremos em contato com os dados para pagamento em breve.\n\n_Departamento Financeiro_`;
-            }
-
-            const { replyWhatsApp } = require("./whatsapp.service");
-            await replyWhatsApp(
-              debtor.tenant_id,
-              debtor.id,
-              debtor.phone,
-              reply,
-            );
-            console.log(
-              `🤝 Acordo automático criado para ${debtor.name} (${installments}x)`,
-            );
-            await notifyAgreementCreated({
-              tenantId: debtor.tenant_id,
-              debtorName: debtor.name,
-              totalAmount,
-              installments,
-              channel: "whatsapp",
-            });
           }
+
+          // Envia resposta da IA para o paciente
+          await replyWhatsApp(
+            debtor.tenant_id,
+            debtor.id,
+            debtor.phone,
+            result.message,
+          );
+          console.log(
+            `🤖 IA respondeu para ${debtor.name}: intent=${result.intent}`,
+          );
+        } catch (err) {
+          console.error("AI negotiator error:", err.message);
         }
       }
     }

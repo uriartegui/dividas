@@ -2,6 +2,9 @@ const router = require("express").Router();
 const auth = require("../../middlewares/auth.middleware");
 const { runWhatsAppCampaign, replyWhatsApp } = require("./whatsapp.service");
 const supabase = require("../../config/db");
+const {
+  notifyAgreementCreated,
+} = require("../notifications/notifications.service");
 
 // ─── WEBHOOK (sem auth — Z-API chama direto) ────────────────────────────────
 router.post("/webhook", async (req, res) => {
@@ -150,6 +153,13 @@ router.post("/webhook", async (req, res) => {
             console.log(
               `🤝 Acordo automático criado para ${debtor.name} (${installments}x)`,
             );
+            await notifyAgreementCreated({
+              tenantId: debtor.tenant_id,
+              debtorName: debtor.name,
+              totalAmount,
+              installments,
+              channel: "whatsapp",
+            });
           }
         }
       }
